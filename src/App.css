@@ -1,10 +1,27 @@
+:root {
+  --bg: #090b13;
+  --surface: rgba(15, 18, 34, 0.94);
+  --surface-strong: rgba(22, 28, 46, 0.98);
+  --surface-muted: rgba(255, 255, 255, 0.04);
+  --border: rgba(255, 255, 255, 0.12);
+  --code-bg: rgba(255, 255, 255, 0.05);
+  --accent: #a855f7;
+  --accent-bg: rgba(168, 85, 247, 0.16);
+  --accent-border: rgba(168, 85, 247, 0.35);
+  --text: #c7d2fe;
+  --text-h: #f8fafc;
+  --shadow: rgba(0, 0, 0, 0.35) 0 20px 60px -30px;
+  --social-bg: rgba(255, 255, 255, 0.05);
+}
+
 .app-shell {
   min-height: 100vh;
-  background: radial-gradient(circle at top left, rgba(170, 59, 255, 0.08), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(99, 102, 241, 0.1), transparent 25%),
+  background: radial-gradient(circle at top left, rgba(168, 85, 247, 0.18), transparent 25%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.12), transparent 20%),
     var(--bg);
   padding: 28px;
   box-sizing: border-box;
+  color: var(--text);
 }
 
 .planner {
@@ -18,11 +35,11 @@
 .sidebar,
 .main-panel,
 .welcome-card {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 28px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(18px);
 }
 
 .sidebar {
@@ -73,17 +90,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border-radius: 18px;
-  border: 1px solid transparent;
-  background: var(--code-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--text-h);
 }
 
 .tag-pill button {
   border: none;
   background: transparent;
-  color: var(--text-h);
+  color: var(--text);
   cursor: pointer;
   font-size: 1rem;
   padding: 0;
@@ -127,10 +144,11 @@
 }
 
 .primary-btn {
-  background: var(--accent);
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
   color: white;
   border-color: transparent;
   padding: 12px 18px;
+  box-shadow: rgba(168, 85, 247, 0.35) 0 10px 25px -12px;
 }
 
 .primary-btn:hover,
@@ -144,21 +162,22 @@
 }
 
 .ghost-btn {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-h);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--text);
   padding: 10px 16px;
 }
 
 .danger-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: #b91c1c;
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.24);
   padding: 10px 16px;
 }
 
 .filter-btn {
-  background: var(--code-bg);
-  color: var(--text-h);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
   padding: 10px 18px;
 }
 
@@ -206,12 +225,12 @@
 .search-box input,
 .task-creator input,
 .task-creator select {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 12px 14px;
   font: inherit;
-  color: var(--text-h);
-  background: white;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.04);
   flex: 1 1 220px;
 }
 
@@ -254,8 +273,8 @@
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  background: white;
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
   padding: 18px;
   align-items: center;
@@ -287,8 +306,8 @@
   width: 44px;
   height: 44px;
   border-radius: 16px;
-  border: 1px solid var(--border);
-  background: white;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--accent);
   font-weight: 700;
 }
@@ -335,10 +354,11 @@
 }
 
 .task-tag {
-  background: var(--code-bg);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 0.85rem;
+  color: var(--text);
 }
 
 .task-actions {
@@ -349,11 +369,11 @@
 
 .empty-state,
 .manual-order-banner {
-  padding: 36px;
-  border: 1px dashed var(--border);
+  padding: 32px;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
   border-radius: 24px;
   text-align: center;
-  background: var(--code-bg);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .empty-icon {
@@ -379,6 +399,7 @@
   padding: 36px;
   display: grid;
   gap: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .welcome-header h1 {
@@ -402,8 +423,15 @@
   width: 100%;
   padding: 16px 18px;
   text-align: left;
-  background: var(--code-bg);
-  color: var(--text-h);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.interest-btn.selected {
+  background: rgba(168, 85, 247, 0.18);
+  color: var(--accent);
+  border-color: rgba(168, 85, 247, 0.35);
 }
 
 .divider {
