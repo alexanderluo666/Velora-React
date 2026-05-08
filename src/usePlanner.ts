@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { arrayMove } from "@dnd-kit/sortable";
 import type {
   DraftState,
   EditingState,
@@ -344,36 +343,6 @@ export function usePlanner() {
     }));
   }
 
-  function reorderTasks(activeId: string, overId: string, visibleTaskIds: string[]) {
-    updateState((previous) => {
-      const ordered = normalizeTaskOrder(previous.tasks);
-      const visibleTaskIdSet = new Set(visibleTaskIds);
-      const visibleOrdered = ordered.filter((task) => visibleTaskIdSet.has(task.id));
-      const activeIndex = visibleOrdered.findIndex((task) => task.id === activeId);
-      const overIndex = visibleOrdered.findIndex((task) => task.id === overId);
-      if (activeIndex === -1 || overIndex === -1 || activeIndex === overIndex) {
-        return previous;
-      }
-
-      const reorderedVisible = arrayMove(visibleOrdered, activeIndex, overIndex);
-      let visibleCursor = 0;
-      const nextTasks = ordered.map((task) => {
-        if (!visibleTaskIdSet.has(task.id)) {
-          return task;
-        }
-
-        const reorderedTask = reorderedVisible[visibleCursor];
-        visibleCursor += 1;
-        return reorderedTask;
-      });
-
-      return {
-        ...previous,
-        tasks: normalizeTaskOrder(nextTasks),
-      };
-    });
-  }
-
   return {
     persistedState,
     drafts,
@@ -409,7 +378,6 @@ export function usePlanner() {
     setEditingTitle,
     setEditingPriority,
     toggleOnboardingInterest,
-    reorderTasks,
   };
 }
 
@@ -429,28 +397,46 @@ function compareRankedTasks(
   }
 
   if (sortMode === "oldest") {
-    return left.task.createdAt - right.task.createdAt;
+    const diff = left.task.createdAt - right.task.createdAt;
+    return diff !== 0 ? diff : left.task.order - right.task.order;
   }
 
   if (sortMode === "newest") {
-    return right.task.createdAt - left.task.createdAt;
+    const diff = right.task.createdAt - left.task.createdAt;
+    return diff !== 0 ? diff : left.task.order - right.task.order;
   }
 
   if (sortMode === "incomplete") {
     if (left.task.completed !== right.task.completed) {
       return left.task.completed ? 1 : -1;
     }
-    return left.task.order - right.task.order;
+
+    const priorityDiff = priorityRank[right.task.priority] - priorityRank[left.task.priority];
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+
+    const createdDiff = right.task.createdAt - left.task.createdAt;
+    return createdDiff !== 0 ? createdDiff : left.task.order - right.task.order;
   }
 
   if (sortMode === "priority") {
     const diff = priorityRank[right.task.priority] - priorityRank[left.task.priority];
-    return diff !== 0 ? diff : left.task.order - right.task.order;
+    if (diff !== 0) {
+      return diff;
+    }
+
+    const completionDiff = Number(left.task.completed) - Number(right.task.completed);
+    if (completionDiff !== 0) {
+      return completionDiff;
+    }
+
+    const createdDiff = right.task.createdAt - left.task.createdAt;
+    return createdDiff !== 0 ? createdDiff : left.task.order - right.task.order;
   }
 
-  return left.task.order - right.task.order;
+  return right.task.createdAt - left.task.createdAt || left.task.order - right.task.order;
 }
-
 function isFocusCandidate(task: Task) {
   if (task.completed) return false;
   return task.focusPinned || task.priority === "high" || Date.now() - task.createdAt <= 24 * 60 * 60 * 1000;

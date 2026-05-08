@@ -38,7 +38,7 @@ export const defaultPersistedState: PersistedState = {
     taskFilterStatus: "all",
     taskFilterTags: [],
     searchQuery: "",
-    sortMode: "manual",
+    sortMode: "newest",
     focusMode: false,
   },
 };
@@ -66,7 +66,7 @@ export function normalizeTaskFilterStatus(value: unknown): TaskFilterStatus {
 export function normalizeSortMode(value: unknown): SortMode {
   return value === "newest" || value === "oldest" || value === "incomplete" || value === "priority"
     ? value
-    : "manual";
+    : "newest";
 }
 
 export function normalizeTaskFilterTags(candidate: unknown, legacyCandidate?: unknown): string[] {
@@ -100,7 +100,11 @@ export function sortTasks(tasks: Task[], mode: SortMode) {
     return ordered.sort((a, b) => priorityRank[b.priority] - priorityRank[a.priority]);
   }
 
-  return ordered;
+  if (mode === "incomplete") {
+    return ordered.sort((a, b) => Number(a.completed) - Number(b.completed));
+  }
+
+  return ordered.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function sanitizeClass(value: string) {

@@ -313,8 +313,15 @@
   border-radius: 20px;
 }
 
+.custom-box > * {
+  min-width: 0;
+}
+
 .custom-box.compact {
   padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
 }
 
 .custom-box input,
@@ -332,20 +339,42 @@
   color: var(--text);
   background: rgba(255, 255, 255, 0.04);
   flex: 1 1 220px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .search-box input {
   width: 100%;
 }
 
+.custom-box select,
 .task-creator select,
 .task-edit-row select {
-  max-width: 160px;
+  flex: 0 1 190px;
+  min-width: 0;
+  max-width: 190px;
 }
 
 .task-creator button,
 .custom-box button {
   flex: 0 0 auto;
+}
+
+.sidebar .custom-box.compact input {
+  width: 100%;
+}
+
+.task-creator .custom-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 190px) auto;
+  align-items: stretch;
+}
+
+.task-creator .custom-box input,
+.task-creator .custom-box select,
+.task-creator .custom-box button {
+  width: 100%;
 }
 
 .task-controls {
@@ -479,26 +508,6 @@
   min-width: 0;
 }
 
-.drag-handle {
-  width: 44px;
-  height: 44px;
-  border-radius: 16px;
-  border: 1px dashed rgba(255, 255, 255, 0.18);
-  display: grid;
-  place-items: center;
-  cursor: grab;
-  background: rgba(255, 255, 255, 0.08);
-  touch-action: none;
-  color: var(--text-h);
-  flex-shrink: 0;
-}
-
-.drag-glyph {
-  letter-spacing: -1px;
-  line-height: 1;
-  font-size: 1rem;
-}
-
 .task-checkbox {
   width: 44px;
   height: 44px;
@@ -546,10 +555,15 @@
 .task-actions {
   display: grid;
   gap: 10px;
-  flex-wrap: wrap;
   align-content: start;
   min-width: 0;
   justify-items: end;
+}
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .icon-btn {
@@ -566,8 +580,7 @@
   color: #fef3c7;
 }
 
-.empty-state,
-.manual-order-banner {
+.empty-state {
   padding: 32px;
   border: 1px dashed rgba(255, 255, 255, 0.14);
   border-radius: 24px;
@@ -578,12 +591,6 @@
 .empty-icon {
   font-size: 2rem;
   margin-bottom: 14px;
-}
-
-.manual-order-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .creator-footnote {
@@ -724,6 +731,14 @@
 
   .custom-box {
     padding: 14px;
+  }
+
+  .task-creator .custom-box {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-box.compact {
+    grid-template-columns: 1fr;
   }
 
   .custom-box input,

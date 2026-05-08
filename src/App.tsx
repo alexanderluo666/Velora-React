@@ -1,30 +1,12 @@
 import { useEffect, type FormEvent } from "react";
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  MouseSensor,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import type { DragEndEvent } from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { usePlanner } from "./usePlanner";
 import { starterInterests } from "./utils";
 import type { Priority, SortMode, Task } from "./types";
 import "./App.css";
 
-function SortableTaskCard({
+function TaskCard({
   task,
   availableTags,
-  isDraggingEnabled,
   editing,
   onToggleCompleted,
   onToggleFocus,
@@ -38,7 +20,6 @@ function SortableTaskCard({
 }: {
   task: Task;
   availableTags: string[];
-  isDraggingEnabled: boolean;
   editing: {
     taskId: string | null;
     title: string;
@@ -56,22 +37,12 @@ function SortableTaskCard({
   onEditingPriority: (value: "low" | "medium" | "high") => void;
   onToggleEditTag: (tag: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: task.id,
-    disabled: !isDraggingEnabled,
-  });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 2 : undefined,
-  };
-
   const priorityLabel = task.priority[0].toUpperCase() + task.priority.slice(1);
   const createdLabel = formatTaskDate(task.createdAt);
 
   if (editing.taskId === task.id) {
     return (
-      <div ref={setNodeRef} style={style} className="task-card editing">
+      <div className="task-card editing">
         <div className="task-edit-row">
           <input
             className="edit-task-input"
@@ -114,18 +85,9 @@ function SortableTaskCard({
   }
 
   return (
-    <article
-      ref={setNodeRef}
-      style={style}
-      className={`task-card ${task.completed ? "completed" : ""} ${isDragging ? "dragging" : ""}`}
-    >
+    <article className={`task-card ${task.completed ? "completed" : ""}`}>
       <div className="task-main">
         <div className="task-leading">
-          {isDraggingEnabled ? (
-            <button className="drag-handle" type="button" {...attributes} {...listeners} aria-label="Drag task to reorder">
-              <span className="drag-glyph">⋮⋮</span>
-            </button>
-          ) : null}
           <button className="task-checkbox" type="button" onClick={() => onToggleCompleted(task.id)} aria-label={task.completed ? "Mark task incomplete" : "Mark task complete"}>
             {task.completed ? "✓" : ""}
           </button>
@@ -206,25 +168,8 @@ export default function App() {
     setEditingTitle,
     setEditingPriority,
     toggleOnboardingInterest,
-    reorderTasks,
   } = usePlanner();
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 6,
-      },
-    }),
-    useSensor(MouseSensor, {
-      activationConstraint: {
-        distance: 6,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-  const dragEnabled = !persistedState.ui.focusMode && !persistedState.ui.searchQuery.trim() && persistedState.ui.sortMode === "manual" && editing.taskId === null;
   const completedCount = persistedState.tasks.filter((task) => task.completed).length;
   const totalCount = persistedState.tasks.length;
   const searchPending = searchInputValue !== persistedState.ui.searchQuery;
@@ -239,16 +184,6 @@ export default function App() {
     const element = document.querySelector<HTMLInputElement>(pendingFocusSelector);
     element?.focus();
   }, [pendingFocusSelector]);
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    reorderTasks(
-      String(active.id),
-      String(over.id),
-      visibleTasks.map((task) => task.id)
-    );
-  }
 
   function handleSubmitTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -356,8 +291,8 @@ export default function App() {
               <div className="summary-tile">
                 <span className="summary-icon" aria-hidden="true">↕</span>
                 <div>
-                  <strong>{dragEnabled ? "Ready" : "Locked"}</strong>
-                  <p>Drag and drop</p>
+                  <strong>{persistedState.ui.focusMode ? "Focused" : "Standard"}</strong>
+                  <p>View mode</p>
                 </div>
               </div>
             </section>
@@ -395,7 +330,6 @@ export default function App() {
                   ))}
                 </div>
                 <select value={persistedState.ui.sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                  <option value="manual">Manual order</option>
                   <option value="newest">Newest</option>
                   <option value="oldest">Oldest</option>
                   <option value="incomplete">Incomplete first</option>
@@ -485,13 +419,7 @@ export default function App() {
               </div>
             </section>
 
-            {dragEnabled ? (
-              <div className="manual-order-banner">
-                <span>Manual order is active. Drag and drop tasks to reorder them.</span>
-              </div>
-            ) : null}
-
-            <section className={`task-list ${dragEnabled ? "drag-enabled" : ""}`}>
+            <section className="task-list">
               {persistedState.tasks.length === 0 ? (
                 <div className="empty-state">
                   <div className="empty-icon">📝</div>
@@ -507,28 +435,23 @@ export default function App() {
                   </p>
                 </div>
               ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={visibleTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
-                    {visibleTasks.map((task) => (
-                      <SortableTaskCard
-                        key={task.id}
-                        task={task}
-                        availableTags={availableTags}
-                        isDraggingEnabled={dragEnabled}
-                        editing={editing}
-                        onToggleCompleted={toggleTaskCompleted}
-                        onToggleFocus={toggleTaskFocused}
-                        onEdit={startEditing}
-                        onDelete={deleteTask}
-                        onSaveEdit={saveEdit}
-                        onCancelEdit={cancelEdit}
-                        onEditingTitle={setEditingTitle}
-                        onEditingPriority={setEditingPriority}
-                        onToggleEditTag={toggleEditTag}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
+                visibleTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    availableTags={availableTags}
+                    editing={editing}
+                    onToggleCompleted={toggleTaskCompleted}
+                    onToggleFocus={toggleTaskFocused}
+                    onEdit={startEditing}
+                    onDelete={deleteTask}
+                    onSaveEdit={saveEdit}
+                    onCancelEdit={cancelEdit}
+                    onEditingTitle={setEditingTitle}
+                    onEditingPriority={setEditingPriority}
+                    onToggleEditTag={toggleEditTag}
+                  />
+                ))
               )}
             </section>
           </main>
