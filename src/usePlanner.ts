@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { arrayMove } from "@dnd-kit/sortable";
 import type {
   DraftState,
   EditingState,
@@ -11,7 +12,6 @@ import type {
 import {
   GENERAL_TAG,
   SEARCH_DEBOUNCE_MS,
-  defaultPersistedState,
   generateId,
   getFocusScore,
   getSearchScore,
@@ -28,7 +28,8 @@ import {
 import { loadPlannerState, savePlannerState } from "./storage";
 
 export function usePlanner() {
-  const [persistedState, setPersistedState] = useState<PersistedState>(defaultPersistedState);
+  const [initialState] = useState<PersistedState>(() => loadPlannerState());
+  const [persistedState, setPersistedState] = useState<PersistedState>(initialState);
   const [drafts, setDrafts] = useState<DraftState>({
     newTask: "",
     newInterest: "",
@@ -42,17 +43,11 @@ export function usePlanner() {
     tags: [],
     focusPinned: false,
   });
-  const [searchInputValue, setSearchInputValue] = useState("");
+  const [searchInputValue, setSearchInputValue] = useState(initialState.ui.searchQuery);
   const [pendingFocusSelector, setPendingFocusSelector] = useState<string | null>(null);
 
   const saveTimeout = useRef<number | null>(null);
   const searchTimeout = useRef<number | null>(null);
-
-  useEffect(() => {
-    const loaded = loadPlannerState();
-    setPersistedState(loaded);
-    setSearchInputValue(loaded.ui.searchQuery);
-  }, []);
 
   useEffect(() => {
     if (saveTimeout.current !== null) {
@@ -113,7 +108,7 @@ export function usePlanner() {
 
     ranked.sort((left, right) => compareRankedTasks(left, right, persistedState.ui.sortMode, persistedState.ui.focusMode, Boolean(query)));
     return ranked.map((entry) => entry.task);
-  }, [persistedState.tasks, persistedState.ui, persistedState.ui.searchQuery]);
+  }, [persistedState.tasks, persistedState.ui]);
 
   function updateState(updater: (previous: PersistedState) => PersistedState) {
     setPersistedState((previous) => updater(previous));
@@ -349,20 +344,33 @@ export function usePlanner() {
     }));
   }
 
-  function reorderTasks(activeId: string, overId: string) {
+  function reorderTasks(activeId: string, overId: string, visibleTaskIds: string[]) {
     updateState((previous) => {
       const ordered = normalizeTaskOrder(previous.tasks);
-      const activeIndex = ordered.findIndex((task) => task.id === activeId);
-      const overIndex = ordered.findIndex((task) => task.id === overId);
+      const visibleTaskIdSet = new Set(visibleTaskIds);
+      const visibleOrdered = ordered.filter((task) => visibleTaskIdSet.has(task.id));
+      const activeIndex = visibleOrdered.findIndex((task) => task.id === activeId);
+      const overIndex = visibleOrdered.findIndex((task) => task.id === overId);
       if (activeIndex === -1 || overIndex === -1 || activeIndex === overIndex) {
         return previous;
       }
 
-      const nextTasks = [...ordered];
-      const [moved] = nextTasks.splice(activeIndex, 1);
-      nextTasks.splice(overIndex, 0, moved);
+      const reorderedVisible = arrayMove(visibleOrdered, activeIndex, overIndex);
+      let visibleCursor = 0;
+      const nextTasks = ordered.map((task) => {
+        if (!visibleTaskIdSet.has(task.id)) {
+          return task;
+        }
 
-      return { ...previous, tasks: normalizeTaskOrder(nextTasks) };
+        const reorderedTask = reorderedVisible[visibleCursor];
+        visibleCursor += 1;
+        return reorderedTask;
+      });
+
+      return {
+        ...previous,
+        tasks: normalizeTaskOrder(nextTasks),
+      };
     });
   }
 

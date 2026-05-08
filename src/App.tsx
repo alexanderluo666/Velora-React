@@ -1,12 +1,20 @@
 import { useEffect, type FormEvent } from "react";
 import {
+  closestCenter,
   DndContext,
+  KeyboardSensor,
   PointerSensor,
+  MouseSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { usePlanner } from "./usePlanner";
 import { starterInterests } from "./utils";
@@ -48,13 +56,18 @@ function SortableTaskCard({
   onEditingPriority: (value: "low" | "medium" | "high") => void;
   onToggleEditTag: (tag: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: task.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: task.id,
+    disabled: !isDraggingEnabled,
+  });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    zIndex: isDragging ? 2 : undefined,
   };
 
   const priorityLabel = task.priority[0].toUpperCase() + task.priority.slice(1);
+  const createdLabel = formatTaskDate(task.createdAt);
 
   if (editing.taskId === task.id) {
     return (
@@ -101,23 +114,37 @@ function SortableTaskCard({
   }
 
   return (
-    <div ref={setNodeRef} style={style} className={`task-card ${task.completed ? "completed" : ""}`}>
+    <article
+      ref={setNodeRef}
+      style={style}
+      className={`task-card ${task.completed ? "completed" : ""} ${isDragging ? "dragging" : ""}`}
+    >
       <div className="task-main">
-        {isDraggingEnabled ? (
-          <button className="drag-handle" type="button" {...attributes} {...listeners} aria-label="Drag task to reorder">
-            ≡
+        <div className="task-leading">
+          {isDraggingEnabled ? (
+            <button className="drag-handle" type="button" {...attributes} {...listeners} aria-label="Drag task to reorder">
+              <span className="drag-glyph">⋮⋮</span>
+            </button>
+          ) : null}
+          <button className="task-checkbox" type="button" onClick={() => onToggleCompleted(task.id)} aria-label={task.completed ? "Mark task incomplete" : "Mark task complete"}>
+            {task.completed ? "✓" : ""}
           </button>
-        ) : null}
-        <button className="task-checkbox" type="button" onClick={() => onToggleCompleted(task.id)}>
-          {task.completed ? "✓" : ""}
-        </button>
+        </div>
         <div className="task-meta">
           <div className="task-title-row">
             <h3>{task.title}</h3>
-            <span className={`priority-badge priority-${task.priority}`}>{priorityLabel}</span>
-            {task.focusPinned ? <span className="focus-badge">Pinned</span> : null}
+            <div className="task-status-badges">
+              <span className={`priority-badge priority-${task.priority}`}>{priorityLabel}</span>
+              {task.focusPinned ? <span className="focus-badge">Pinned</span> : null}
+            </div>
           </div>
-          <div className="task-tags">
+          <div className="task-info-row">
+            <span className="meta-pill">Created {createdLabel}</span>
+            <span className={`meta-pill ${task.completed ? "success" : ""}`}>
+              {task.completed ? "Completed" : "In progress"}
+            </span>
+          </div>
+          <div className="task-tags" aria-label="Task tags">
             {task.tags.map((tag) => (
               <span key={tag} className="task-tag">
                 {tag}
@@ -127,17 +154,20 @@ function SortableTaskCard({
         </div>
       </div>
       <div className="task-actions">
-        <button className="ghost-btn" type="button" onClick={() => onToggleFocus(task.id)}>
-          {task.focusPinned ? "Unfocus" : "Focus"}
+        <button className={`ghost-btn icon-btn ${task.focusPinned ? "active" : ""}`} type="button" onClick={() => onToggleFocus(task.id)}>
+          <span aria-hidden="true">◎</span>
+          <span>{task.focusPinned ? "Unfocus" : "Focus"}</span>
         </button>
-        <button className="ghost-btn" type="button" onClick={() => onEdit(task)}>
-          ✎
+        <button className="ghost-btn icon-btn" type="button" onClick={() => onEdit(task)}>
+          <span aria-hidden="true">✎</span>
+          <span>Edit</span>
         </button>
-        <button className="danger-btn" type="button" onClick={() => onDelete(task.id)}>
-          ✕
+        <button className="danger-btn icon-btn" type="button" onClick={() => onDelete(task.id)}>
+          <span aria-hidden="true">✕</span>
+          <span>Delete</span>
         </button>
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -179,11 +209,30 @@ export default function App() {
     reorderTasks,
   } = usePlanner();
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 6,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   const dragEnabled = !persistedState.ui.focusMode && !persistedState.ui.searchQuery.trim() && persistedState.ui.sortMode === "manual" && editing.taskId === null;
   const completedCount = persistedState.tasks.filter((task) => task.completed).length;
   const totalCount = persistedState.tasks.length;
   const searchPending = searchInputValue !== persistedState.ui.searchQuery;
+  const activeCount = totalCount - completedCount;
+  const focusedCount = persistedState.tasks.filter((task) => task.focusPinned).length;
+  const highPriorityCount = persistedState.tasks.filter((task) => task.priority === "high" && !task.completed).length;
+  const completionRate = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  const selectedFilterCount = persistedState.ui.taskFilterTags.length;
 
   useEffect(() => {
     if (!pendingFocusSelector) return;
@@ -194,7 +243,11 @@ export default function App() {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    reorderTasks(String(active.id), String(over.id));
+    reorderTasks(
+      String(active.id),
+      String(over.id),
+      visibleTasks.map((task) => task.id)
+    );
   }
 
   function handleSubmitTask(event: FormEvent<HTMLFormElement>) {
@@ -211,6 +264,31 @@ export default function App() {
               <h2>✨ Velora</h2>
               <div className="progress-indicator">{completedCount}/{totalCount}</div>
             </div>
+            <section className="sidebar-section">
+              <h3>Overview</h3>
+              <div className="stats-grid">
+                <div className="stat-card accent">
+                  <span className="stat-label">Completion</span>
+                  <strong>{completionRate}%</strong>
+                  <span className="stat-meta">{completedCount} finished</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Active</span>
+                  <strong>{activeCount}</strong>
+                  <span className="stat-meta">Tasks in motion</span>
+                </div>
+                <div className="stat-card">
+                  <span className="stat-label">Focus</span>
+                  <strong>{focusedCount}</strong>
+                  <span className="stat-meta">Pinned tasks</span>
+                </div>
+                <div className="stat-card warning">
+                  <span className="stat-label">Urgent</span>
+                  <strong>{highPriorityCount}</strong>
+                  <span className="stat-meta">High priority open</span>
+                </div>
+              </div>
+            </section>
             <section className="sidebar-section">
               <h3>Your Interests</h3>
               {tagSummaries.length === 0 ? (
@@ -252,6 +330,37 @@ export default function App() {
                 Focus Mode {persistedState.ui.focusMode ? "On" : "Off"}
               </button>
             </header>
+
+            <section className="summary-strip" aria-label="Task overview">
+              <div className="summary-tile">
+                <span className="summary-icon" aria-hidden="true">◌</span>
+                <div>
+                  <strong>{activeCount}</strong>
+                  <p>Open tasks</p>
+                </div>
+              </div>
+              <div className="summary-tile">
+                <span className="summary-icon" aria-hidden="true">⌘</span>
+                <div>
+                  <strong>{persistedState.ui.sortMode}</strong>
+                  <p>Current sort</p>
+                </div>
+              </div>
+              <div className="summary-tile">
+                <span className="summary-icon" aria-hidden="true">#</span>
+                <div>
+                  <strong>{selectedFilterCount}</strong>
+                  <p>Tag filters</p>
+                </div>
+              </div>
+              <div className="summary-tile">
+                <span className="summary-icon" aria-hidden="true">↕</span>
+                <div>
+                  <strong>{dragEnabled ? "Ready" : "Locked"}</strong>
+                  <p>Drag and drop</p>
+                </div>
+              </div>
+            </section>
 
             <section className="task-controls">
               <div className="custom-box search-box">
@@ -335,6 +444,10 @@ export default function App() {
                     Add Task
                   </button>
                 </div>
+                <div className="creator-footnote">
+                  <span>{drafts.newTaskTags.length} tags selected</span>
+                  <span>{drafts.newTaskPriority} priority</span>
+                </div>
               </form>
 
               {suggestedTags.length > 0 ? (
@@ -394,7 +507,7 @@ export default function App() {
                   </p>
                 </div>
               ) : (
-                <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={visibleTasks.map((task) => task.id)} strategy={verticalListSortingStrategy}>
                     {visibleTasks.map((task) => (
                       <SortableTaskCard
@@ -468,4 +581,11 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function formatTaskDate(timestamp: number) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(timestamp);
 }
